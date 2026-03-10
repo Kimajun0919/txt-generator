@@ -14,13 +14,14 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   --bg: #f4f7fb;
-  --panel: rgba(255, 255, 255, 0.9);
+  --panel: rgba(255, 255, 255, 0.92);
   --panel-strong: #ffffff;
   --line: #dbe4f0;
   --line-strong: #c6d4e6;
   --text: #14213d;
   --muted: #5f6e87;
   --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, 0.08);
   --success: #0f9f6e;
   --shadow: 0 20px 45px rgba(42, 61, 102, 0.08);
 }
@@ -44,7 +45,7 @@ body {
 
 button,
 input,
-textarea {
+select {
   font: inherit;
 }
 
@@ -52,7 +53,8 @@ button {
   cursor: pointer;
 }
 
-input {
+input,
+select {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -62,11 +64,11 @@ input {
   outline: none;
   transition:
     border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
+    box-shadow 0.2s ease;
 }
 
-input:focus {
+input:focus,
+select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
 }
@@ -78,6 +80,7 @@ input:focus {
 }
 
 .panel {
+  padding: 24px;
   background: var(--panel);
   backdrop-filter: blur(18px);
   border: 1px solid rgba(219, 228, 240, 0.95);
@@ -87,10 +90,10 @@ input:focus {
 
 .hero {
   display: grid;
-  grid-template-columns: 1.25fr 1fr;
+  grid-template-columns: 1.2fr 1fr;
   gap: 20px;
-  padding: 28px;
   margin-bottom: 20px;
+  padding: 28px;
 }
 
 .eyebrow {
@@ -114,7 +117,7 @@ input:focus {
 }
 
 .hero-description {
-  max-width: 60ch;
+  max-width: 62ch;
   margin: 12px 0 0;
   color: var(--muted);
   font-size: 1rem;
@@ -126,31 +129,39 @@ input:focus {
   gap: 14px;
 }
 
-.stat-card {
+.stat-card,
+.summary-card {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-height: 150px;
+  min-height: 148px;
   padding: 20px;
   border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(244, 247, 252, 0.9));
+  background: linear-gradient(180deg, #ffffff, #f6f9fd);
   border: 1px solid var(--line);
 }
 
-.stat-label {
+.stat-label,
+.summary-label {
   color: var(--muted);
   font-size: 0.9rem;
 }
 
-.stat-value {
+.stat-value,
+.summary-value {
   font-size: 2rem;
   line-height: 1;
 }
 
-.stat-hint {
+.stat-hint,
+.summary-hint,
+.panel-header p,
+.field small,
+.setting-card-copy span,
+.select-control span,
+.status-banner,
+.preview-block {
   color: var(--muted);
-  font-size: 0.9rem;
 }
 
 .content-grid {
@@ -161,7 +172,8 @@ input:focus {
 }
 
 .form-column,
-.preview-column {
+.preview-column,
+.stack-list {
   display: grid;
   gap: 20px;
 }
@@ -178,23 +190,8 @@ input:focus {
   font-size: 1.3rem;
 }
 
-.panel-header p,
-.field small,
-.row-copy span,
-.status-banner,
-.check-item span,
-.preview-block,
-.progress-copy span,
-.agent-summary {
-  color: var(--muted);
-}
-
 .panel-header p {
   margin: 8px 0 0;
-}
-
-.panel {
-  padding: 24px;
 }
 
 .form-grid {
@@ -207,12 +204,19 @@ input:focus {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  color: var(--muted);
   font-size: 0.94rem;
 }
 
-.field span {
+.field span,
+.setting-card-copy strong,
+.policy-grid h3,
+.select-control span {
   color: var(--text);
+}
+
+.field span,
+.setting-card-copy strong,
+.policy-grid h3 {
   font-weight: 700;
 }
 
@@ -220,90 +224,61 @@ input:focus {
   margin-top: 16px;
 }
 
-.option-grid {
+.card-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
-.option-card,
-.row-toggle {
-  width: 100%;
+.compact-grid {
+  grid-template-columns: 1fr;
+}
+
+.setting-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 220px;
+  padding: 18px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
   border: 1px solid var(--line);
-  background: var(--panel-strong);
-  border-radius: 22px;
-  padding: 16px 18px;
-  text-align: left;
   transition:
-    transform 0.2s ease,
     border-color 0.2s ease,
     box-shadow 0.2s ease,
-    background 0.2s ease;
+    transform 0.2s ease;
 }
 
-.option-card:hover,
-.row-toggle:hover {
-  transform: translateY(-1px);
+.setting-card:hover {
   border-color: var(--line-strong);
+  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.08);
+  transform: translateY(-1px);
 }
 
-.option-card strong,
-.row-copy strong,
-.policy-grid h3 {
-  display: block;
-  color: var(--text);
-  font-size: 1rem;
-}
-
-.option-card span {
-  display: block;
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-
-.option-card.is-active,
-.row-toggle.is-active {
+.setting-card.is-active {
   border-color: rgba(37, 99, 235, 0.28);
-  background: linear-gradient(180deg, #ffffff, #f5f9ff);
-  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 14px 34px rgba(37, 99, 235, 0.12);
 }
 
-.stack-list {
-  display: grid;
-  gap: 12px;
-}
-
-.stack-list.compact .row-toggle {
-  padding: 14px 16px;
-}
-
-.row-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.row-copy {
+.setting-card-copy {
   min-width: 0;
+  flex: 1;
 }
 
-.row-copy span {
+.setting-card-copy span {
   display: block;
   margin-top: 6px;
-  font-size: 0.92rem;
+  font-size: 0.93rem;
 }
 
-.path-list {
+.chip-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  justify-content: flex-end;
+  margin-top: 12px;
 }
 
-.path-chip,
-.agent-summary {
+.path-chip {
   border-radius: 999px;
   background: #eff4fb;
   color: var(--text);
@@ -312,12 +287,26 @@ input:focus {
   font-weight: 700;
 }
 
-.agent-summary {
-  max-width: 48%;
-  text-align: right;
+.select-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
 }
 
-.policy-grid {
+.select-control span {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.select-input {
+  background:
+    linear-gradient(180deg, #ffffff, #f8fbff),
+    var(--panel-strong);
+}
+
+.policy-grid,
+.summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
@@ -360,11 +349,6 @@ input:focus {
   color: var(--accent);
 }
 
-.button.ghost {
-  background: #eef3f9;
-  color: var(--text);
-}
-
 .sticky-panel {
   position: sticky;
   top: 20px;
@@ -381,8 +365,8 @@ input:focus {
 
 .preview-block {
   margin: 0;
-  min-height: 380px;
-  max-height: 700px;
+  min-height: 420px;
+  max-height: 720px;
   overflow: auto;
   border-radius: 24px;
   padding: 20px;
@@ -396,80 +380,6 @@ input:focus {
   word-break: break-word;
 }
 
-.progress-panel {
-  margin-bottom: 18px;
-  padding: 18px;
-  border-radius: 22px;
-  background: linear-gradient(180deg, #fdfefe, #f4f9ff);
-  border: 1px solid var(--line);
-}
-
-.progress-copy {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-.progress-copy strong {
-  font-size: 1.5rem;
-}
-
-.progress-track {
-  width: 100%;
-  height: 12px;
-  border-radius: 999px;
-  background: #e8eef7;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #0f9f6e, #2bbd86);
-}
-
-.checklist-groups {
-  display: grid;
-  gap: 14px;
-}
-
-.checklist-card {
-  border: 1px solid var(--line);
-  border-radius: 22px;
-  padding: 18px;
-  background: var(--panel-strong);
-}
-
-.checklist-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.checklist-items {
-  display: grid;
-  gap: 10px;
-}
-
-.check-item {
-  display: grid;
-  grid-template-columns: 18px 1fr;
-  gap: 12px;
-  align-items: start;
-  padding: 10px 0;
-}
-
-.check-item input {
-  width: 18px;
-  height: 18px;
-  margin: 2px 0 0;
-  accent-color: var(--success);
-}
-
 @media (max-width: 1100px) {
   .hero,
   .content-grid {
@@ -481,7 +391,7 @@ input:focus {
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 780px) {
   .page-shell {
     width: min(100vw - 18px, 100%);
     padding-top: 10px;
@@ -495,24 +405,15 @@ input:focus {
 
   .hero-stats,
   .form-grid,
-  .option-grid,
-  .policy-grid {
+  .card-grid,
+  .policy-grid,
+  .summary-grid {
     grid-template-columns: 1fr;
   }
 
-  .row-toggle,
   .panel-header {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .agent-summary {
-    max-width: 100%;
-    text-align: left;
-  }
-
-  .path-list {
-    justify-content: flex-start;
   }
 
   .button-row {
@@ -521,6 +422,5 @@ input:focus {
 
   .button {
     width: 100%;
-    justify-content: center;
   }
 }

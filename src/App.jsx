@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import "./styles.css";
 import {
   agentOptions,
-  checklistCategories,
   createInitialSettings,
   defaultFormValues,
   disallowGroupOptions,
@@ -20,11 +19,23 @@ const requiredFieldLabels = {
   companyName: "회사명",
 };
 
-function countChecklistItems() {
-  return checklistCategories.reduce(
-    (sum, category) => sum + category.items.length,
-    0,
-  );
+const includeOptions = [
+  { value: "true", label: "포함" },
+  { value: "false", label: "제외" },
+];
+
+const disallowOptions = [
+  { value: "true", label: "차단" },
+  { value: "false", label: "사용 안 함" },
+];
+
+const agentPolicyOptions = [
+  { value: "true", label: "기본 정책 적용" },
+  { value: "false", label: "규칙 제외" },
+];
+
+function countEnabledValues(group) {
+  return Object.values(group).filter(Boolean).length;
 }
 
 function countEnabledSettings(settings) {
@@ -37,29 +48,85 @@ function countEnabledSettings(settings) {
   ].filter(Boolean).length;
 }
 
+function SelectCard({
+  title,
+  description,
+  controlLabel,
+  value,
+  options,
+  onChange,
+  chips = [],
+}) {
+  return (
+    <article className={`setting-card ${value === "true" ? "is-active" : ""}`}>
+      <div className="setting-card-copy">
+        <strong>{title}</strong>
+        <span>{description}</span>
+        {chips.length > 0 && (
+          <div className="chip-list">
+            {chips.map((chip) => (
+              <span key={chip} className="path-chip">
+                {chip}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <label className="select-control">
+        <span>{controlLabel}</span>
+        <select
+          className="select-input"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    </article>
+  );
+}
+
 export default function App() {
   const [formValues, setFormValues] = useState(defaultFormValues);
   const [settings, setSettings] = useState(() => createInitialSettings());
-  const [checklistState, setChecklistState] = useState({});
   const [copied, setCopied] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
-
-  const totalChecklistItems = countChecklistItems();
-  const checkedChecklistItems = Object.values(checklistState).filter(Boolean)
-    .length;
-  const checklistProgress = Math.round(
-    (checkedChecklistItems / totalChecklistItems) * 100,
-  );
 
   const missingFields = Object.entries(requiredFieldLabels)
     .filter(([field]) => !formValues[field].trim())
     .map(([, label]) => label);
 
-  const readyToGenerate =
-    missingFields.length === 0 && checkedChecklistItems === totalChecklistItems;
-
+  const readyToGenerate = missingFields.length === 0;
   const generatedText = generateAiTxt(formValues, settings);
   const enabledRuleCount = countEnabledSettings(settings);
+
+  const summaryItems = [
+    {
+      label: "공개 경로",
+      value: `${countEnabledValues(settings.publicPaths)}/${publicPathOptions.length}`,
+      hint: "Allow 대상 섹션",
+    },
+    {
+      label: "차단 프리셋",
+      value: `${countEnabledValues(settings.disallowGroups)}/${disallowGroupOptions.length}`,
+      hint: "기본 Disallow 묶음",
+    },
+    {
+      label: "봇 오버라이드",
+      value: `${countEnabledValues(settings.agents)}/${agentOptions.length}`,
+      hint: "개별 크롤러 규칙",
+    },
+    {
+      label: "Use Policy",
+      value: `${countEnabledValues(settings.permittedUses) + countEnabledValues(settings.prohibitedUses)}`,
+      hint: "문장 포함 수",
+    },
+  ];
 
   useEffect(() => {
     if (!copied) {
@@ -86,33 +153,14 @@ export default function App() {
     }));
   }
 
-  function toggleSetting(group, id) {
+  function updateBooleanSetting(group, id, value) {
     setSettings((current) => ({
       ...current,
       [group]: {
         ...current[group],
-        [id]: !current[group][id],
+        [id]: value === "true",
       },
     }));
-  }
-
-  function toggleChecklistItem(id) {
-    setChecklistState((current) => ({
-      ...current,
-      [id]: !current[id],
-    }));
-  }
-
-  function markAllChecklistItems(nextValue) {
-    const updatedState = {};
-
-    checklistCategories.forEach((category) => {
-      category.items.forEach((item) => {
-        updatedState[item.id] = nextValue;
-      });
-    });
-
-    setChecklistState(updatedState);
   }
 
   async function handleCopy() {
@@ -146,9 +194,9 @@ export default function App() {
           <p className="eyebrow">AI policy builder</p>
           <h1>ai.txt 생성기</h1>
           <p className="hero-description">
-            `main` 초안의 템플릿 구조를 정리해서, 체크리스트 확인 후 바로
-            `ai.txt`를 만들 수 있게 구성했습니다. 입력값과 옵션은 실시간으로
-            미리보기에 반영됩니다.
+            체크리스트를 따로 누르지 않고, 필요한 정책을 선택 박스로 바로
+            고르면 `ai.txt` 초안이 즉시 갱신됩니다. 설정 한 번으로 복사와
+            다운로드까지 끝낼 수 있게 정리했습니다.
           </p>
         </div>
 
@@ -167,14 +215,14 @@ export default function App() {
           </article>
 
           <article className="stat-card">
-            <span className="stat-label">체크리스트</span>
+            <span className="stat-label">생성 상태</span>
             <strong className="stat-value">
-              {checkedChecklistItems}/{totalChecklistItems}
+              {readyToGenerate ? "Ready" : "Pending"}
             </strong>
             <span className="stat-hint">
-              {checklistProgress === 100
-                ? "출시 전 점검 완료"
-                : "배포 전 검수 항목 확인 중"}
+              {readyToGenerate
+                ? "지금 바로 복사하거나 다운로드 가능"
+                : "필수 필드를 채우면 즉시 생성 가능"}
             </span>
           </article>
 
@@ -279,26 +327,24 @@ export default function App() {
             <div className="panel-header">
               <div>
                 <h2>공개 경로</h2>
-                <p>AI 에이전트에 노출할 공개 섹션을 선택합니다.</p>
+                <p>AI 에이전트에 보여줄 공개 섹션만 골라서 포함합니다.</p>
               </div>
             </div>
 
-            <div className="option-grid">
-              {publicPathOptions.map((option) => {
-                const selected = settings.publicPaths[option.id];
-
-                return (
-                  <button
-                    type="button"
-                    key={option.id}
-                    className={`option-card ${selected ? "is-active" : ""}`}
-                    onClick={() => toggleSetting("publicPaths", option.id)}
-                  >
-                    <strong>{option.label}</strong>
-                    <span>{option.description}</span>
-                  </button>
-                );
-              })}
+            <div className="card-grid">
+              {publicPathOptions.map((option) => (
+                <SelectCard
+                  key={option.id}
+                  title={option.label}
+                  description={option.description}
+                  controlLabel="공개 여부"
+                  value={String(settings.publicPaths[option.id])}
+                  options={includeOptions}
+                  onChange={(value) =>
+                    updateBooleanSetting("publicPaths", option.id, value)
+                  }
+                />
+              ))}
             </div>
           </section>
 
@@ -306,35 +352,25 @@ export default function App() {
             <div className="panel-header">
               <div>
                 <h2>차단 경로 프리셋</h2>
-                <p>민감한 경로를 한 번에 Disallow 처리합니다.</p>
+                <p>민감한 경로를 기본 Disallow 규칙에 포함합니다.</p>
               </div>
             </div>
 
-            <div className="stack-list">
-              {disallowGroupOptions.map((group) => {
-                const selected = settings.disallowGroups[group.id];
-
-                return (
-                  <button
-                    type="button"
-                    key={group.id}
-                    className={`row-toggle ${selected ? "is-active" : ""}`}
-                    onClick={() => toggleSetting("disallowGroups", group.id)}
-                  >
-                    <div className="row-copy">
-                      <strong>{group.label}</strong>
-                      <span>{group.description}</span>
-                    </div>
-                    <div className="path-list">
-                      {group.paths.map((path) => (
-                        <span key={path} className="path-chip">
-                          {path}
-                        </span>
-                      ))}
-                    </div>
-                  </button>
-                );
-              })}
+            <div className="card-grid">
+              {disallowGroupOptions.map((group) => (
+                <SelectCard
+                  key={group.id}
+                  title={group.label}
+                  description={group.description}
+                  chips={group.paths}
+                  controlLabel="차단 여부"
+                  value={String(settings.disallowGroups[group.id])}
+                  options={disallowOptions}
+                  onChange={(value) =>
+                    updateBooleanSetting("disallowGroups", group.id, value)
+                  }
+                />
+              ))}
             </div>
           </section>
 
@@ -342,35 +378,36 @@ export default function App() {
             <div className="panel-header">
               <div>
                 <h2>AI 에이전트 오버라이드</h2>
-                <p>크롤러별로 공개 범위를 따로 명시할 수 있습니다.</p>
+                <p>봇마다 기본 정책을 적용할지 바로 선택합니다.</p>
               </div>
             </div>
 
-            <div className="stack-list">
+            <div className="card-grid">
               {agentOptions.map((agent) => {
-                const selected = settings.agents[agent.id];
-                const allowPaths = publicPathOptions
+                const allowedPublicPaths = publicPathOptions
                   .filter((option) => settings.publicPaths[option.id])
                   .filter((option) => agent.allowPathIds.includes(option.id))
                   .map((option) => option.label);
 
+                const description =
+                  agent.mode === "block"
+                    ? "기본값은 전체 차단입니다."
+                    : allowedPublicPaths.length > 0
+                      ? `현재 선택된 공개 경로만 허용합니다: ${allowedPublicPaths.join(", ")}`
+                      : "허용 경로가 없으면 전체 차단으로 기록됩니다.";
+
                 return (
-                  <button
-                    type="button"
+                  <SelectCard
                     key={agent.id}
-                    className={`row-toggle ${selected ? "is-active" : ""}`}
-                    onClick={() => toggleSetting("agents", agent.id)}
-                  >
-                    <div className="row-copy">
-                      <strong>{agent.userAgent}</strong>
-                      <span>{agent.label}</span>
-                    </div>
-                    <div className="agent-summary">
-                      {agent.mode === "block" || allowPaths.length === 0
-                        ? "Disallow /"
-                        : `Allow ${allowPaths.join(", ")} + Disallow /`}
-                    </div>
-                  </button>
+                    title={agent.userAgent}
+                    description={`${agent.label} · ${description}`}
+                    controlLabel="정책 적용"
+                    value={String(settings.agents[agent.id])}
+                    options={agentPolicyOptions}
+                    onChange={(value) =>
+                      updateBooleanSetting("agents", agent.id, value)
+                    }
+                  />
                 );
               })}
             </div>
@@ -380,56 +417,46 @@ export default function App() {
             <div className="panel-header">
               <div>
                 <h2>Use Policy</h2>
-                <p>허용 용도와 금지 용도를 문장으로 명시합니다.</p>
+                <p>허용 문장과 금지 문장을 각각 포함 여부로 결정합니다.</p>
               </div>
             </div>
 
             <div className="policy-grid">
               <div>
                 <h3>허용 용도</h3>
-                <div className="stack-list compact">
-                  {permittedUseOptions.map((option) => {
-                    const selected = settings.permittedUses[option.id];
-
-                    return (
-                      <button
-                        type="button"
-                        key={option.id}
-                        className={`row-toggle ${selected ? "is-active" : ""}`}
-                        onClick={() => toggleSetting("permittedUses", option.id)}
-                      >
-                        <div className="row-copy">
-                          <strong>{option.label}</strong>
-                          <span>{option.line}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
+                <div className="card-grid compact-grid">
+                  {permittedUseOptions.map((option) => (
+                    <SelectCard
+                      key={option.id}
+                      title={option.label}
+                      description={option.line}
+                      controlLabel="문장 포함"
+                      value={String(settings.permittedUses[option.id])}
+                      options={includeOptions}
+                      onChange={(value) =>
+                        updateBooleanSetting("permittedUses", option.id, value)
+                      }
+                    />
+                  ))}
                 </div>
               </div>
 
               <div>
                 <h3>금지 용도</h3>
-                <div className="stack-list compact">
-                  {prohibitedUseOptions.map((option) => {
-                    const selected = settings.prohibitedUses[option.id];
-
-                    return (
-                      <button
-                        type="button"
-                        key={option.id}
-                        className={`row-toggle ${selected ? "is-active" : ""}`}
-                        onClick={() =>
-                          toggleSetting("prohibitedUses", option.id)
-                        }
-                      >
-                        <div className="row-copy">
-                          <strong>{option.label}</strong>
-                          <span>{option.line}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
+                <div className="card-grid compact-grid">
+                  {prohibitedUseOptions.map((option) => (
+                    <SelectCard
+                      key={option.id}
+                      title={option.label}
+                      description={option.line}
+                      controlLabel="문장 포함"
+                      value={String(settings.prohibitedUses[option.id])}
+                      options={includeOptions}
+                      onChange={(value) =>
+                        updateBooleanSetting("prohibitedUses", option.id, value)
+                      }
+                    />
+                  ))}
                 </div>
               </div>
             </div>
@@ -441,7 +468,7 @@ export default function App() {
             <div className="panel-header">
               <div>
                 <h2>미리보기</h2>
-                <p>입력값이 바뀌면 `ai.txt` 초안이 바로 갱신됩니다.</p>
+                <p>입력값과 선택값이 바뀌면 `ai.txt` 초안이 즉시 갱신됩니다.</p>
               </div>
 
               <div className="button-row">
@@ -467,15 +494,11 @@ export default function App() {
             <div className="status-banner">
               {readyToGenerate ? (
                 <span>
-                  모든 체크리스트를 확인했습니다. 바로 배포용 파일을 생성할 수
-                  있습니다.
+                  필수 입력이 모두 채워졌습니다. 지금 바로 `ai.txt`를 복사하거나
+                  다운로드할 수 있습니다.
                 </span>
               ) : (
-                <span>
-                  {missingFields.length > 0
-                    ? `${missingFields.join(", ")} 입력 후 체크리스트를 완료하세요.`
-                    : "체크리스트를 모두 확인하면 생성 버튼이 활성화됩니다."}
-                </span>
+                <span>{`${missingFields.join(", ")} 입력 후 생성할 수 있습니다.`}</span>
               )}
             </div>
 
@@ -485,73 +508,19 @@ export default function App() {
           <section className="panel">
             <div className="panel-header">
               <div>
-                <h2>출시 체크리스트</h2>
-                <p>배포 전에 필요한 검수 항목을 클릭해서 확인합니다.</p>
-              </div>
-
-              <div className="button-row">
-                <button
-                  type="button"
-                  className="button ghost"
-                  onClick={() => markAllChecklistItems(true)}
-                >
-                  전체 선택
-                </button>
-                <button
-                  type="button"
-                  className="button ghost"
-                  onClick={() => markAllChecklistItems(false)}
-                >
-                  초기화
-                </button>
+                <h2>설정 요약</h2>
+                <p>현재 선택된 항목 수를 빠르게 확인합니다.</p>
               </div>
             </div>
 
-            <div className="progress-panel">
-              <div className="progress-copy">
-                <strong>{checklistProgress}%</strong>
-                <span>
-                  {checkedChecklistItems} / {totalChecklistItems} 항목 확인
-                </span>
-              </div>
-              <div className="progress-track">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${checklistProgress}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="checklist-groups">
-              {checklistCategories.map((category) => {
-                const completedCount = category.items.filter(
-                  (item) => checklistState[item.id],
-                ).length;
-
-                return (
-                  <article key={category.category} className="checklist-card">
-                    <div className="checklist-header">
-                      <strong>{category.category}</strong>
-                      <span>
-                        {completedCount}/{category.items.length}
-                      </span>
-                    </div>
-
-                    <div className="checklist-items">
-                      {category.items.map((item) => (
-                        <label key={item.id} className="check-item">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(checklistState[item.id])}
-                            onChange={() => toggleChecklistItem(item.id)}
-                          />
-                          <span>{item.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </article>
-                );
-              })}
+            <div className="summary-grid">
+              {summaryItems.map((item) => (
+                <article key={item.label} className="summary-card">
+                  <span className="summary-label">{item.label}</span>
+                  <strong className="summary-value">{item.value}</strong>
+                  <span className="summary-hint">{item.hint}</span>
+                </article>
+              ))}
             </div>
           </section>
         </div>
