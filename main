@@ -1,0 +1,420 @@
+import { useState } from "react";
+
+const TEMPLATE = `# ===========================================================
+# ai.txt — AI & Agent Access Policy
+# Site    : {{SITE_URL}}
+# Version : {{VERSION}}
+# Updated : {{LAST_UPDATED}}
+# Contact : {{MAINTAINER_EMAIL}}
+# ===========================================================
+# Purpose:
+#   This file declares how AI systems (crawlers, agents,
+#   training pipelines) may access and use content from
+#   {{SITE_URL}}.
+#   Note: robots.txt always governs crawl rules; this file
+#   extends policy intent for AI-specific use cases.
+# ===========================================================
+
+# -----------------------------------------------------------
+# SECTION 1 — DEFAULT RULE (catch-all)
+# -----------------------------------------------------------
+User-Agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/private/
+Disallow: /members/
+Disallow: /mypage/
+Disallow: /billing/
+Disallow: /checkout/
+Disallow: /cart/
+Disallow: /user-data/
+Disallow: /internal/
+Disallow: /draft/
+Disallow: /staging/
+Disallow: /*.json$
+Disallow: /*.xml$
+
+Crawl-Delay: 5
+
+# -----------------------------------------------------------
+# SECTION 2 — WELL-KNOWN AI CRAWLERS (per-agent overrides)
+# -----------------------------------------------------------
+
+# OpenAI / ChatGPT
+User-Agent: GPTBot
+Allow: /blog/
+Allow: /docs/
+Allow: /help/
+Disallow: /
+
+# Anthropic / Claude
+User-Agent: ClaudeBot
+Allow: /blog/
+Allow: /docs/
+Allow: /help/
+Disallow: /
+
+# Google Gemini / Bard
+User-Agent: Google-Extended
+Allow: /blog/
+Allow: /docs/
+Disallow: /
+
+# Meta AI
+User-Agent: FacebookBot
+Disallow: /
+
+# Common Training Crawlers
+User-Agent: CCBot
+Disallow: /
+
+User-Agent: omgili
+Disallow: /
+
+User-Agent: omgilibot
+Disallow: /
+
+# -----------------------------------------------------------
+# SECTION 3 — SITEMAP
+# -----------------------------------------------------------
+Sitemap: {{SITE_URL}}/sitemap.xml
+# Sitemap: {{SITE_URL}}/sitemap-blog.xml   # (optional: per-section sitemaps)
+
+# -----------------------------------------------------------
+# SECTION 4 — USE POLICY (human-readable)
+# -----------------------------------------------------------
+
+# PERMITTED USES:
+# - Indexing and retrieval for search and Q&A
+# - Summarization of public documentation and blog content
+# - Non-commercial research and evaluation
+# - Displaying excerpts with attribution to {{COMPANY_NAME}}
+
+# PROHIBITED USES:
+# - Model training or fine-tuning on any content from this site
+# - Reproduction or redistribution without permission
+# - Automated bulk scraping beyond Crawl-Delay
+# - Processing of any user-generated content, PII, or session data
+# - Any use of content from disallowed paths
+
+# ATTRIBUTION:
+# When content from {{SITE_URL}} is surfaced to end users,
+# attribution to "{{COMPANY_NAME}}" with a link to the source
+# page is strongly recommended.
+
+# CONTACT FOR LICENSING / EXCEPTIONS:
+# {{MAINTAINER_EMAIL}}
+# ===========================================================`;
+
+const CHECKLIST = [
+  {
+    category: "📋 헤더 & 메타",
+    items: [
+      { id: "c1", label: "SITE_URL — 실제 도메인으로 교체했는지 (https:// 포함)" },
+      { id: "c2", label: "VERSION — 버전 번호 기재 (예: 1.0.0)" },
+      { id: "c3", label: "LAST_UPDATED — 오늘 날짜 (YYYY-MM-DD 형식)" },
+      { id: "c4", label: "MAINTAINER_EMAIL — 실제 연락처 이메일" },
+      { id: "c5", label: "COMPANY_NAME — 회사/서비스 정식 명칭" },
+    ],
+  },
+  {
+    category: "🔓 Allow / Disallow 경로",
+    items: [
+      { id: "p1", label: "공개 콘텐츠 경로만 Allow에 포함했는지 (blog, docs, help 등)" },
+      { id: "p2", label: "회원 전용 경로 Disallow 처리 (/members/, /mypage/)" },
+      { id: "p3", label: "결제·주문 경로 Disallow 처리 (/billing/, /checkout/, /cart/)" },
+      { id: "p4", label: "관리자·내부 경로 Disallow 처리 (/admin/, /internal/)" },
+      { id: "p5", label: "개인정보 관련 경로 Disallow 처리 (/user-data/)" },
+      { id: "p6", label: "API·민감 엔드포인트 Disallow 처리 (/api/private/)" },
+      { id: "p7", label: "드래프트·스테이징 경로 Disallow 처리 (/draft/, /staging/)" },
+      { id: "p8", label: "크롤링 속도 설정 (Crawl-Delay: 5 이상 권장)" },
+    ],
+  },
+  {
+    category: "🤖 AI 에이전트별 설정",
+    items: [
+      { id: "a1", label: "GPTBot (OpenAI) — Allow/Disallow 명시" },
+      { id: "a2", label: "ClaudeBot (Anthropic) — Allow/Disallow 명시" },
+      { id: "a3", label: "Google-Extended (Gemini) — Allow/Disallow 명시" },
+      { id: "a4", label: "CCBot (CommonCrawl, 학습 데이터 수집) — 정책 결정" },
+      { id: "a5", label: "FacebookBot (Meta) — 정책 결정" },
+      { id: "a6", label: "* (와일드카드) 기본 규칙이 마지막 방어선으로 설정되어 있는지" },
+    ],
+  },
+  {
+    category: "🗺️ Sitemap",
+    items: [
+      { id: "s1", label: "Sitemap URL이 실제 접근 가능한 경로인지 확인" },
+      { id: "s2", label: "robots.txt의 Sitemap 항목과 동일한지 확인" },
+      { id: "s3", label: "섹션별 사이트맵이 있다면 추가 기재 (blog, news 등)" },
+    ],
+  },
+  {
+    category: "📜 Use Policy 문장",
+    items: [
+      { id: "u1", label: "허용 용도 명시 (검색, 요약, Q&A 등)" },
+      { id: "u2", label: "금지 용도 명시 (모델 학습, 무단 재배포 등)" },
+      { id: "u3", label: "출처 표기(Attribution) 요청 여부 결정 및 기재" },
+      { id: "u4", label: "라이선스 문의 연락처 포함" },
+    ],
+  },
+  {
+    category: "✅ 최종 검증",
+    items: [
+      { id: "v1", label: "브라우저에서 https://도메인/ai.txt 직접 접속 → 정상 출력 확인" },
+      { id: "v2", label: "robots.txt Disallow 항목과 모순 없는지 교차 확인" },
+      { id: "v3", label: "인코딩 깨짐 없이 UTF-8로 저장됐는지 확인" },
+      { id: "v4", label: "{{PLACEHOLDER}} 형태의 미치환 변수가 없는지 검색" },
+      { id: "v5", label: "배포 후 Last-Updated 날짜를 버전 관리(git 등)에 커밋" },
+    ],
+  },
+];
+
+export default function AiTxtTool() {
+  const [tab, setTab] = useState("template");
+  const [checked, setChecked] = useState({});
+  const [copied, setCopied] = useState(false);
+
+  const toggle = (id) => setChecked((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  const totalItems = CHECKLIST.reduce((s, c) => s + c.items.length, 0);
+  const doneItems = Object.values(checked).filter(Boolean).length;
+  const progress = Math.round((doneItems / totalItems) * 100);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(TEMPLATE);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const resetAll = () => setChecked({});
+
+  return (
+    <div style={{ fontFamily: "'DM Mono', 'Courier New', monospace", background: "#0d0f14", minHeight: "100vh", color: "#c8d3e0", padding: "0" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@600;700;800&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0d0f14; }
+        ::-webkit-scrollbar-thumb { background: #2a3040; border-radius: 3px; }
+        .tab-btn { background: none; border: none; cursor: pointer; font-family: 'DM Mono', monospace; transition: all 0.2s; }
+        .tab-btn:hover { opacity: 0.9; }
+        .copy-btn { transition: all 0.2s; cursor: pointer; border: none; font-family: 'DM Mono', monospace; }
+        .copy-btn:hover { transform: translateY(-1px); }
+        .check-item:hover { background: rgba(99,179,237,0.05); }
+        .category-card { border: 1px solid #1e2535; border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+        .progress-bar-inner { transition: width 0.5s cubic-bezier(0.4,0,0.2,1); }
+        pre { white-space: pre-wrap; word-break: break-word; }
+      `}</style>
+
+      {/* Header */}
+      <div style={{ background: "linear-gradient(135deg, #111520 0%, #161b28 100%)", borderBottom: "1px solid #1e2535", padding: "28px 32px 0" }}>
+        <div style={{ maxWidth: 820, margin: "0 auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
+            <span style={{ fontSize: 22 }}>🤖</span>
+            <h1 style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: 22, color: "#e8edf5", letterSpacing: "-0.5px" }}>
+              ai.txt Universal Kit
+            </h1>
+            <span style={{ background: "#1a3a5c", color: "#63b3ed", fontSize: 11, padding: "2px 8px", borderRadius: 4, fontWeight: 500 }}>v1.0</span>
+          </div>
+          <p style={{ fontSize: 12, color: "#6b7a99", marginBottom: 20 }}>
+            모든 프로젝트에 바로 쓸 수 있는 범용 템플릿 + 배포 전 체크리스트
+          </p>
+
+          {/* Tabs */}
+          <div style={{ display: "flex", gap: 0 }}>
+            {[
+              { key: "template", label: "📄  Template" },
+              { key: "checklist", label: "☑️  Checklist" },
+            ].map((t) => (
+              <button
+                key={t.key}
+                className="tab-btn"
+                onClick={() => setTab(t.key)}
+                style={{
+                  padding: "10px 20px",
+                  fontSize: 13,
+                  color: tab === t.key ? "#63b3ed" : "#6b7a99",
+                  borderBottom: tab === t.key ? "2px solid #63b3ed" : "2px solid transparent",
+                  fontWeight: tab === t.key ? 500 : 400,
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 820, margin: "0 auto", padding: "24px 32px 48px" }}>
+
+        {/* TEMPLATE TAB */}
+        {tab === "template" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div>
+                <p style={{ fontSize: 12, color: "#6b7a99" }}>
+                  <span style={{ color: "#f6ad55" }}>※</span>&nbsp;
+                  <code style={{ background: "#1a2030", padding: "1px 6px", borderRadius: 3, fontSize: 11 }}>{"{{PLACEHOLDER}}"}</code>
+                  &nbsp;항목을 실제 값으로 교체 후 사용하세요.
+                </p>
+              </div>
+              <button
+                className="copy-btn"
+                onClick={handleCopy}
+                style={{
+                  background: copied ? "#1a4a2e" : "#1a3a5c",
+                  color: copied ? "#68d391" : "#63b3ed",
+                  border: `1px solid ${copied ? "#276749" : "#2c5282"}`,
+                  padding: "7px 16px",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 500,
+                }}
+              >
+                {copied ? "✓ 복사됨" : "⎘  복사"}
+              </button>
+            </div>
+
+            {/* Placeholder legend */}
+            <div style={{ background: "#111520", border: "1px solid #1e2535", borderRadius: 8, padding: "14px 18px", marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 24px" }}>
+              {[
+                ["{{SITE_URL}}", "https://yourdomain.com"],
+                ["{{VERSION}}", "1.0.0"],
+                ["{{LAST_UPDATED}}", "2026-03-10"],
+                ["{{MAINTAINER_EMAIL}}", "webmaster@yourcompany.com"],
+                ["{{COMPANY_NAME}}", "회사명 (영문)"],
+              ].map(([key, ex]) => (
+                <div key={key} style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 11 }}>
+                  <code style={{ color: "#f6ad55", whiteSpace: "nowrap" }}>{key}</code>
+                  <span style={{ color: "#4a5568" }}>→</span>
+                  <span style={{ color: "#718096" }}>{ex}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Template code block */}
+            <div style={{ background: "#090b10", border: "1px solid #1e2535", borderRadius: 10, overflow: "hidden" }}>
+              <div style={{ background: "#0f1420", borderBottom: "1px solid #1e2535", padding: "10px 18px", display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#e05252" }} />
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#e0a452" }} />
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#52b952" }} />
+                <span style={{ fontSize: 12, color: "#4a5568", marginLeft: 8 }}>ai.txt</span>
+              </div>
+              <pre style={{ padding: "20px 22px", fontSize: 11.5, lineHeight: 1.75, color: "#8da0b8", overflow: "auto", maxHeight: 520 }}>
+                {TEMPLATE.split("\n").map((line, i) => {
+                  let color = "#8da0b8";
+                  if (line.startsWith("#")) color = "#4a6070";
+                  else if (line.startsWith("User-Agent")) color = "#68d391";
+                  else if (line.startsWith("Allow")) color = "#63b3ed";
+                  else if (line.startsWith("Disallow")) color = "#fc8181";
+                  else if (line.startsWith("Sitemap")) color = "#b794f4";
+                  else if (line.startsWith("Crawl-Delay")) color = "#f6ad55";
+                  else if (line.includes("{{")) color = "#f6e05e";
+                  return (
+                    <span key={i} style={{ display: "block", color }}>
+                      {line || "\u00A0"}
+                    </span>
+                  );
+                })}
+              </pre>
+            </div>
+
+            {/* Syntax legend */}
+            <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: "8px 20px" }}>
+              {[
+                ["#999", "#  주석"],
+                ["#68d391", "User-Agent"],
+                ["#63b3ed", "Allow"],
+                ["#fc8181", "Disallow"],
+                ["#b794f4", "Sitemap"],
+                ["#f6ad55", "Crawl-Delay"],
+                ["#f6e05e", "{{PLACEHOLDER}}"],
+              ].map(([c, l]) => (
+                <span key={l} style={{ fontSize: 11, color: "#4a5568", display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: c, display: "inline-block" }} />
+                  <span style={{ color: "#5a6a80" }}>{l}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* CHECKLIST TAB */}
+        {tab === "checklist" && (
+          <div>
+            {/* Progress bar */}
+            <div style={{ background: "#111520", border: "1px solid #1e2535", borderRadius: 10, padding: "18px 20px", marginBottom: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <span style={{ fontSize: 13, color: "#c8d3e0", fontFamily: "Syne, sans-serif", fontWeight: 700 }}>
+                  배포 준비도
+                </span>
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <span style={{ fontSize: 13, color: progress === 100 ? "#68d391" : "#63b3ed", fontWeight: 500 }}>
+                    {doneItems} / {totalItems}
+                  </span>
+                  <button onClick={resetAll} style={{ background: "none", border: "1px solid #1e2535", color: "#4a5568", fontSize: 11, padding: "3px 10px", borderRadius: 4, cursor: "pointer", fontFamily: "DM Mono, monospace" }}>
+                    초기화
+                  </button>
+                </div>
+              </div>
+              <div style={{ background: "#1a2030", borderRadius: 4, height: 6, overflow: "hidden" }}>
+                <div
+                  className="progress-bar-inner"
+                  style={{
+                    width: `${progress}%`,
+                    height: "100%",
+                    background: progress === 100 ? "linear-gradient(90deg, #38a169, #68d391)" : "linear-gradient(90deg, #2b6cb0, #63b3ed)",
+                    borderRadius: 4,
+                  }}
+                />
+              </div>
+              {progress === 100 && (
+                <p style={{ marginTop: 10, fontSize: 12, color: "#68d391", textAlign: "center" }}>
+                  ✓ 모든 항목 완료 — ai.txt 배포 준비 완료!
+                </p>
+              )}
+            </div>
+
+            {/* Categories */}
+            {CHECKLIST.map((cat) => {
+              const catDone = cat.items.filter((i) => checked[i.id]).length;
+              return (
+                <div key={cat.category} className="category-card">
+                  <div style={{ background: "#0f1420", padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: "#c8d3e0", fontWeight: 500 }}>{cat.category}</span>
+                    <span style={{ fontSize: 11, color: catDone === cat.items.length ? "#68d391" : "#4a5568" }}>
+                      {catDone}/{cat.items.length}
+                    </span>
+                  </div>
+                  <div style={{ padding: "8px 0" }}>
+                    {cat.items.map((item) => (
+                      <label
+                        key={item.id}
+                        className="check-item"
+                        style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "9px 18px", cursor: "pointer" }}
+                      >
+                        <div style={{
+                          width: 16, height: 16, border: `1.5px solid ${checked[item.id] ? "#63b3ed" : "#2a3a54"}`,
+                          borderRadius: 4, background: checked[item.id] ? "#1a3a5c" : "transparent",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          flexShrink: 0, marginTop: 1, transition: "all 0.15s"
+                        }}>
+                          {checked[item.id] && <span style={{ color: "#63b3ed", fontSize: 10, lineHeight: 1 }}>✓</span>}
+                        </div>
+                        <input type="checkbox" checked={!!checked[item.id]} onChange={() => toggle(item.id)} style={{ display: "none" }} />
+                        <span style={{ fontSize: 12.5, color: checked[item.id] ? "#4a6070" : "#a0aec0", textDecoration: checked[item.id] ? "line-through" : "none", lineHeight: 1.5 }}>
+                          {item.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
